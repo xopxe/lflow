@@ -1,0 +1,8 @@
+#ftimer1: 1 > timer > tack1
+d1: 'button:2', 0.1 > sensor_poll > butt1
+th1: butt1, '>', 0.5, 0 > threshold > b1
+lb: b1 > lback > lb1
+
+#fp2: 'Button!', butt1 > print >
+fp2: 'Button2!', b1> print >
+fp3: 'Button2lb!', lb1 > print >

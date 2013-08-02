@@ -1,0 +1,7 @@
+ftimer1: 1 > timer > tack1
+fp1: 'X', tack1 > print >
+fsum1: tack1, 1 > sum > tacksum1
+fsum2: tacksum1, 0 > sum > tacksum2
+fp2: 'F', tacksum1, tacksum2 > print >
+
+
