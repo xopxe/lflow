@@ -3,6 +3,7 @@ package.path = package.path .. ";;;./lflow/Toribio/?.lua;./lflow/Toribio/Lumen/?
 
 require "log".setlevel('INFO', 'FFLOW')
 require "log".setlevel('INFO', 'TORIBIO')
+--require "log".setlevel('ALL', 'TORIBIO')
 
 local sched = require "sched"
 local lflow = require 'lflow/init'

@@ -90,15 +90,17 @@ M.create_filter = function(name, in_events, out_events, filter)
   local n_events_to_wait = #waitd.events
   local n_outputs = #out_events
   
+  --[[
   if n_events_to_wait==0 then
     local errmsg = 'filter has no inputs linked'
     log('LFLOW', 'ERROR', errmsg)
     return nil, errmsg
   end
+  --]]
     
   --set environment for f
   local env={
-    output=function(...) sched.signal(fevents['tack'], i) 
+    output=function(...) 
       for i = 1, select('#',...) do
         local output = select(i,...)
         local out_event = out_events[i]
@@ -172,7 +174,8 @@ end
 
 M.stop = function()
   log('LFLOW', 'DETAIL', 'Stopping flow')
-  sched.run(function() sched.signal(fevents['lflow_run'], false) end)
+  --sched.run(function() sched.signal(fevents['lflow_run'], false) end)
+  sched.signal(fevents['lflow_run'], false)
   for fname, f in pairs(ffilters)do
     log('LFLOW', 'DEBUG', 'Pausing "%s" (%s)', fname, tostring(f.taskd))
     f.taskd:set_pause(true)
@@ -185,7 +188,8 @@ M.start = function()
     log('LFLOW', 'DEBUG', 'Unpausing "%s" (%s)', fname, tostring(f.taskd))
     f.taskd:set_pause(false)
   end
-  sched.run(function() sched.signal(fevents['lflow_run'], true) end)
+  --sched.run(function() sched.signal(fevents['lflow_run'], true) end)
+  sched.signal(fevents['lflow_run'], true)
 end
 
 
