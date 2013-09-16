@@ -43,9 +43,10 @@ M.create_filter = function (in_events, out_events, filter)
   
   in_events[#in_events+1] = 'lflow_run'
   
-  local waitd = {buff_mode='keep_last'}
+  local waitd = {} --{buff_mode='keep_last'}
   local parameter_values = {}
   local parameter_from_ev = {}
+  local weak_event = {}
   
   --prepare waitd for in_events
   for i, in_event in ipairs(in_events) do
@@ -65,9 +66,13 @@ M.create_filter = function (in_events, out_events, filter)
         log('LFLOW', 'DETAIL', 'Adding parameter %d with const string "%s"', i, quotedPart)
         parameter_values[i] = quotedPart
       else
-        local fevent = fevents[in_event]
-        log('LFLOW', 'DETAIL', 'Adding parameter %d linked to signal "%s" (%s)'
-          , i, in_event, tostring(fevent))
+        local _,_, weak_marker, in_event_name = in_event:find('^(%??)%s*(.*)$')
+        local is_weak = (weak_marker == '?' or nil)
+        local fevent = fevents[in_event_name]
+        log('LFLOW', 'DETAIL', 'Adding parameter %d linked to signal "%s" (%s), set as weak=%s'
+          , i, in_event_name, tostring(fevent), tostring(is_weak))
+        --print ('xxxxxxxxx', in_event_name, tostring(fevent), tostring(event_weak))
+        weak_event[fevent] = is_weak
         parameter_from_ev[fevent] = i
         waitd[#waitd+1] = fevent
       end
@@ -134,7 +139,7 @@ M.create_filter = function (in_events, out_events, filter)
     else
       parameter_values[parameter] = v1 --updating with arrived value
     end
-    if n_events_to_wait == n_arrived then
+    if not weak_event[event] and n_events_to_wait == n_arrived then
       emit_output( f(unpack(parameter_values)) )
       
       if lossy_filtering then 

@@ -47,7 +47,7 @@ if filename then
         
       --line = line:gsub('%s+', '') --remove whitespaces
       
-      if line~='' and line:sub(1,1)~='#' then
+      if line~=string.rep(' ', #line) and not line:find('^%s*#') then
         --print ('line:', line)
         local in_params, filter_body, out_params 
           = line:match('^(.*)%>%s*(.-)%s*%>%s*(.-)%s*$')
