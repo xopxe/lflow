@@ -1,17 +1,42 @@
 --look for packages one folder up.
 package.path = package.path .. ";;;./lflow/Toribio/?.lua;./lflow/Toribio/Lumen/?.lua"
 
-require "log".setlevel('INFO', 'FFLOW')
-require "log".setlevel('INFO', 'TORIBIO')
+local log = require 'log'
+log.setlevel('INFO', 'FFLOW')
+log.setlevel('ALL', 'TORIBIO')
 --require "log".setlevel('ALL', 'TORIBIO')
 
 local sched = require "sched"
 local lflow = require 'lflow/init'
 local loadfile = require 'lib/compat_env'.loadfile
 
---sched.sigrun({emitter='*', events={'*'}}, print)
-
 local filename = _G.arg[1] --'lflow/test.lflow'
+
+local ffilters = {}
+
+local function filters_stop ()
+  sched.run( function()
+    log('LFLOW', 'DETAIL', 'Stopping flow')
+    --sched.run(function() sched.signal(fevents['lflow_run'], false) end)
+    sched.signal(lflow.fevents['lflow_run'], false)
+    for fname, f in pairs(ffilters)do
+      log('LFLOW', 'DEBUG', 'Pausing "%s" (%s)', fname, tostring(f.taskd))
+      f.taskd:set_pause(true)
+    end
+  end)
+end
+
+local function filters_start ()
+  sched.run( function()
+    log('LFLOW', 'DETAIL', 'Starting flow')
+    for fname, f in pairs(ffilters)do
+      log('LFLOW', 'DEBUG', 'Unpausing "%s" (%s)', fname, tostring(f.taskd))
+      f.taskd:set_pause(false)
+    end
+    --sched.run(function() sched.signal(fevents['lflow_run'], true) end)
+    sched.signal(lflow.fevents['lflow_run'], true)
+  end)
+end
 
 if filename then
   local file=assert(io.open(filename, 'r'))
@@ -24,10 +49,10 @@ if filename then
       
       if line~='' and line:sub(1,1)~='#' then
         --print ('line:', line)
-        local filter_name, in_params, filter_body, out_params 
-          = line:match('^%s*(.-)%s*%:(.*)%>%s*(.-)%s*%>%s*(.-)%s*$')
-        --print ('line parsed:', filter_name, in_params, filter_body, out_params)
-        if filter_name then 
+        local in_params, filter_body, out_params 
+          = line:match('^(.*)%>%s*(.-)%s*%>%s*(.-)%s*$')
+        --print ('line parsed:', in_params, filter_body, out_params)
+        if in_params and filter_body and out_params then 
           local inputs, outputs = {}, {}
           
           --list in params
@@ -46,8 +71,10 @@ if filename then
           
           --print ('+', filter_body)
           local filter_path = './lflow/filters/'..filter_body..'.lua'
-          local filter, err = lflow.create_filter(filter_name, inputs, outputs, filter_path)
-          if not filter then 
+          local filter, err = lflow.create_filter(inputs, outputs, filter_path)
+          if filter then 
+            ffilters['filter: '..linenumber] = filter
+          else
             io.stderr:write('lflow: '..filename..':'..linenumber..': '..tostring(err)..'\n')
           end
         else
@@ -56,7 +83,17 @@ if filename then
       end
     end)
   end
-  sched.run(lflow.start)
+  filters_start()
+  --[[
+  sched.run(function()
+    while true do
+      sched.sleep(1)
+      for k, v in pairs(lflow.fevents) do
+        print (k, v.emitted, v.caught)
+      end
+    end
+  end)
+  --]]
 end
 
 sched.go()

@@ -13,8 +13,9 @@ return function(device, step, start)
         output(bd.getValue())
       end
     end)
-  else 
-    if dev_task then dev_task:kill() end
+  elseif dev_task then 
+    dev_task:kill() 
+    dev_task=nil
   end
 end
 

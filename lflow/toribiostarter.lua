@@ -1,11 +1,6 @@
 --package.path = package.path .. ";;;Lumen/?.lua"
-
---require 'strict'
-
-local sched = require 'sched'
 local log = require 'log'
 require "tasks/selector".init({service='nixio'})
-
 local toribio = require 'toribio'
 
 --loads from a configuration file
