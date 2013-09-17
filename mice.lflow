@@ -1,0 +1,4 @@
+'mice:/dev/input/mice', 'leftbutton' > toribio_event > click
+'mice:/dev/input/mice', 'move' > toribio_event > x, y
+'mov',x,y > print >
+'click',click > print >

@@ -20,11 +20,11 @@ local log = require 'log'
 -- fevents[name] = {} --singleton
 local fevents = setmetatable(
   {
-    ['lflow_run'] = {emitted=0, caught=0}, --true|false
+    ['lflow_run'] = {}, --true|false
   }, 
   { 
     __index = function( t, k )
-      local v = {emitted=0, caught=0}
+      local v = {}
       t[k] = v
       return v
     end
@@ -35,43 +35,64 @@ M.fevents = fevents
 -- fvalues[evname] = value
 local fvalues = {}
 
+local ffilters = {}
+M.ffilters = ffilters
+
+M.remove_filter = function (name)
+  log('LFLOW', 'DETAIL', 'Removing filter "%s"', name)
+  local ffilter = ffilters[name]
+
+  if ffilter then
+    local errmsg = 'filter does not exist: '..name
+    log('LFLOW', 'ERROR', errmsg)
+    return nil, errmsg
+  end
+  
+  ffilter.task:kill()
+  ffilters[name] = nil
+  return true
+end
+
+
 -- in_events = {string par1, string par2, ...}
 -- out_events = {string out1, string out2, ...}
 -- p = {parameters={},outputs={},f=function}
-M.create_filter = function (in_events, out_events, filter)
-  log('LFLOW', 'DETAIL', 'Creating a filter with "%s"', filter)
+M.create_filter = function (name, in_events, out_events, filter)
+  log('LFLOW', 'DETAIL', 'Creating a filter "%s"', name)
   
   in_events[#in_events+1] = 'lflow_run'
   
-  local waitd = {} --{buff_mode='keep_last'}
+  if ffilters[name] then
+    local errmsg = 'filter already present: '..name
+    log('LFLOW', 'ERROR', errmsg)
+    return nil, errmsg
+  end
+  
+  local waitd = {buff_mode='keep_last'}
   local parameter_values = {}
   local parameter_from_ev = {}
-  local weak_event = {}
   
   --prepare waitd for in_events
   for i, in_event in ipairs(in_events) do
     if in_event=='true' then
-      log('LFLOW', 'DETAIL', 'Adding parameter %d with boolean value "true"', i)
+      log('LFLOW', 'DETAIL', 'Filter "%s": adding parameter %d with boolean value "true"', name, i)
       parameter_values[i] = true
     elseif in_event=='false' then
-      log('LFLOW', 'DETAIL', 'Adding parameter %d with boolean value "false"', i)
+      log('LFLOW', 'DETAIL', 'Filter "%s": adding parameter %d with boolean value "false"', name, i)
       parameter_values[i] = false
     elseif type(in_event)=='number' then
-      log('LFLOW', 'DETAIL', 'Adding parameter %d with const value "%f"', i, in_event)
+      log('LFLOW', 'DETAIL', 'Filter "%s": adding parameter %d with const value "%f"', name, i, in_event)
       parameter_values[i] = in_event
     elseif type(in_event) == 'string' then
       --test if const string
       local _, _, c, quotedPart = in_event:find("^([\"'])(.*)%1$")
       if c then 
-        log('LFLOW', 'DETAIL', 'Adding parameter %d with const string "%s"', i, quotedPart)
+        log('LFLOW', 'DETAIL', 'Filter "%s": adding parameter %d with const string "%s"', name, i, quotedPart)
         parameter_values[i] = quotedPart
       else
-        local _,_, weak_marker, in_event_name = in_event:find('^(%??)%s*(.*)$')
-        local is_weak = (weak_marker == '?' or nil)
-        local fevent = fevents[in_event_name]
-        log('LFLOW', 'DETAIL', 'Adding parameter %d linked to signal "%s" (%s), set as weak=%s'
-          , i, in_event_name, tostring(fevent), tostring(is_weak))
-        weak_event[fevent] = is_weak
+        local fevent = fevents[in_event]
+        log('LFLOW', 'DETAIL', 'Filter "%s": adding parameter %d linked to signal "%s" (%s)'
+          , name, i, in_event, tostring(fevent))
         parameter_from_ev[fevent] = i
         waitd[#waitd+1] = fevent
       end
@@ -93,22 +114,17 @@ M.create_filter = function (in_events, out_events, filter)
   end
   --]]
     
-  local function emit_output (...)
-    for i = 1, #out_events do
-      local output = select(i,...)
-      if output~=nil then
-        local out_event = out_events[i]
-        log('LFLOW', 'DEBUG', 'Generating output %d linked to "%s": %s', i, out_event, tostring(output))
-        local e = fevents[out_event]
-        e.emitted = e.emitted+1
-        sched.signal(e, output)
-      end
-    end
-  end
-    
   --set environment for f
   local env={
-    output=emit_output,
+    output=function(...) 
+      for i = 1, select('#',...) do
+        local output = select(i,...)
+        local out_event = out_events[i]
+        log('LFLOW', 'DEBUG', 'Filter "%s" generating output %d linked to "%s": %s'
+          , name, i, out_event, tostring(output))
+        sched.signal(fevents[out_event], output)
+      end
+    end,
   }
   for k, v in pairs(_G) do env[k]=v end
   
@@ -130,16 +146,25 @@ M.create_filter = function (in_events, out_events, filter)
   local n_arrived = 0
   local process_input_signal = function(event, v1, ...)
     local parameter = assert(parameter_from_ev[event])
-    log('LFLOW', 'DEBUG', 'Received parameter %s (%s)', parameter, tostring(event))
-    event.caught = event.caught + 1
+    log('LFLOW', 'DEBUG', 'Filter "%s" received parameter %s (%s)', name, parameter, tostring(event))
     if parameter_values[parameter]==nil then 
       parameter_values[parameter]=v1
       n_arrived=n_arrived+1
     else
       parameter_values[parameter] = v1 --updating with arrived value
     end
-    if not weak_event[event] and n_events_to_wait == n_arrived then
-      emit_output( f(unpack(parameter_values)) )
+    if n_events_to_wait == n_arrived then
+      local outputs = { f(unpack(parameter_values)) }
+      --emit output
+      for i = 1, n_outputs do
+        local output = outputs[i]
+        if output then
+          local out_event = out_events[i]
+          log('LFLOW', 'DEBUG', 'Filter "%s" generating output %d linked to "%s": %s'
+            , name, i, out_event, tostring(output))
+          sched.signal(fevents[out_event], output)
+        end
+      end
       
       if lossy_filtering then 
         --cleanup arrived_events
@@ -159,7 +184,29 @@ M.create_filter = function (in_events, out_events, filter)
     in_events = in_events, 
     out_events = out_events,
   }
+  ffilters[name] = ffilter
   return ffilter
 end
+
+M.stop = function()
+  log('LFLOW', 'DETAIL', 'Stopping flow')
+  --sched.run(function() sched.signal(fevents['lflow_run'], false) end)
+  sched.signal(fevents['lflow_run'], false)
+  for fname, f in pairs(ffilters)do
+    log('LFLOW', 'DEBUG', 'Pausing "%s" (%s)', fname, tostring(f.taskd))
+    f.taskd:set_pause(true)
+  end
+end
+
+M.start = function()
+  log('LFLOW', 'DETAIL', 'Starting flow')
+  for fname, f in pairs(ffilters)do
+    log('LFLOW', 'DEBUG', 'Unpausing "%s" (%s)', fname, tostring(f.taskd))
+    f.taskd:set_pause(false)
+  end
+  --sched.run(function() sched.signal(fevents['lflow_run'], true) end)
+  sched.signal(fevents['lflow_run'], true)
+end
+
 
 return M

@@ -1,0 +1,22 @@
+sumar2 = {
+  parameters = {'par1','par2'},
+  outputs = {suma},
+  --s = [[
+	--	local par1=flow_in['par1']
+	--	local par2=flow_in['par2']
+	--	print ('ssssssssssssss', par1, par2)
+  --  flow_out.suma(par1+par2)
+  --]],
+	f = function(par1, par2)
+		return par1+par2
+	end
+} 
+
+
+--[[LFLOW
+
+fequal:	5, dtick > templates.equal >> value=tack
+fsum:		par1=1, par2=tack > sumar2 >> suma=tacksum  
+fprint: tacksum > templates.print >>
+
+LFLOW--]]
