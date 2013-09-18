@@ -1,10 +1,6 @@
 --look for packages two folders up.
 --package.path = package.path .. ";;;../../?.lua"
 
--------------
-local lossy_filtering=false
--------------
-
 local M = {}
 
 local require, tostring, assert, pairs, ipairs, select, unpack 
@@ -38,8 +34,8 @@ local fvalues = {}
 -- in_events = {string par1, string par2, ...}
 -- out_events = {string out1, string out2, ...}
 -- p = {parameters={},outputs={},f=function}
-M.create_filter = function (in_events, out_events, filter)
-  log('LFLOW', 'DETAIL', 'Creating a filter with "%s"', filter)
+M.create_filter = function (in_events, out_events, filter_from, filter)
+  log('LFLOW', 'INFO', 'Creating a filter from %s "%s"', filter_from, filter)
   
   in_events[#in_events+1] = 'lflow_run'
   
@@ -112,7 +108,15 @@ M.create_filter = function (in_events, out_events, filter)
   }
   for k, v in pairs(_G) do env[k]=v end
   
-  local fdef, err = loadfile(filter, 't', env)
+  local fdef, err 
+  if filter_from=='file' then
+    fdef, err = loadfile(filter, 't', env)
+  elseif filter_from=='string' then
+    fdef, err = load(filter, nil, 't', env)
+  else
+    error ('filter_from must be "string" or "file", is '..tostring(filter_from))
+  end
+  
   if not fdef then 
     log('LFLOW', 'ERROR', 'Failed to load factory: %s', err)
     return nil, 'failed to load factory: '..tostring(err)
@@ -121,7 +125,7 @@ M.create_filter = function (in_events, out_events, filter)
   local f=fdef()
   
   if type(f)~='function' then
-    local errmsg = 'factory '.. filter .. ' should return function, returned ' .. type(f)
+    local errmsg = 'factory '..filter..' should return function, returned '..type(f)
     log('LFLOW', 'ERROR', errmsg); 
     return nil, errmsg
   end
@@ -132,22 +136,14 @@ M.create_filter = function (in_events, out_events, filter)
     local parameter = assert(parameter_from_ev[event])
     log('LFLOW', 'DEBUG', 'Received parameter %s (%s)', parameter, tostring(event))
     event.caught = event.caught + 1
-    if parameter_values[parameter]==nil then 
-      parameter_values[parameter]=v1
+    if parameter_values[parameter] == nil then 
+      parameter_values[parameter] = v1
       n_arrived=n_arrived+1
     else
       parameter_values[parameter] = v1 --updating with arrived value
     end
     if not weak_event[event] and n_events_to_wait == n_arrived then
       emit_output( f(unpack(parameter_values)) )
-      
-      if lossy_filtering then 
-        --cleanup arrived_events
-        for ev, param in pairs(parameter_from_ev) do 
-          parameter_values[param] = nil 
-        end
-        n_arrived = 0
-      end
     end
   end
     
@@ -160,6 +156,14 @@ M.create_filter = function (in_events, out_events, filter)
     out_events = out_events,
   }
   return ffilter
+end
+
+M.start = function()
+  sched.signal(M.fevents['lflow_run'], true)
+end
+
+M.stop = function()
+  sched.signal(M.fevents['lflow_run'], true)
 end
 
 return M
