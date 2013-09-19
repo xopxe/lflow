@@ -1,0 +1,6 @@
+1 > timer > tick
+tick > function(s) if s%60==0 then return s/60 end end > minutes
+tick > function(s) return s%60 end > seconds
+'sec', seconds > print >
+'min', minutes > print >
+
