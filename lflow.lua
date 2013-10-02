@@ -1,4 +1,3 @@
---look for packages one folder up.
 package.path = package.path .. ";;;./lflow/Toribio/?.lua;./lflow/Toribio/Lumen/?.lua"
 
 local log = require 'log'
@@ -42,54 +41,18 @@ if filename then
   local file=assert(io.open(filename, 'r'))
   local linenumber = 0
   for line in file:lines() do
-    linenumber=linenumber+1
-    sched.run(function()
-        
+    linenumber=linenumber+1     
       --line = line:gsub('%s+', '') --remove whitespaces
       
       if line~=string.rep(' ', #line) and not line:find('^%s*#') then
         --print ('line:', line)
-        local in_params, filter_body, out_params 
-          = line:match('^([^%>]*)%>%s*(.-)%s*%>%s*([^%>]*)%s*$')
-        --print ('line parsed:', in_params, filter_body, out_params)
-        if in_params and filter_body and out_params then 
-          local inputs, outputs = {}, {}
-          
-          --list in params
-          for p in in_params:gmatch("[^,]+") do
-            p = p:match('^%s*(.-)%s*$')
-            inputs[#inputs+1] = tonumber(p) or p
-            --print('param', #inputs, p)
-          end
-          
-          --list outparams
-          for p in out_params:gmatch("[^,]+") do
-            p = p:match('^%s*(.-)%s*$')
-            outputs[#outputs+1] = p
-            --print('output', #inputs, p)
-          end
-          
-          --print ('+', filter_body)
-          local filter, err
-          --if filter_body:find('^%s*function%*%(.+end%s*$') then
-          if filter_body:find('^%s*function%s*%(.+end%s*$') then
-            --filter_body is source code
-            filter, err = lflow.create_filter(inputs, outputs, 'string', 'return '..filter_body)
-          else
-            --filter_body must be filename
-            local filter_path = './lflow/filters/'..filter_body..'.lua'
-            filter, err = lflow.create_filter(inputs, outputs, 'file', filter_path)
-          end
-          if filter then 
-            ffilters['filter: '..linenumber] = filter
-          else
-            io.stderr:write('lflow: '..filename..':'..linenumber..': '..tostring(err)..'\n')
-          end
+        local filter, err = lflow.parse_line(line)
+        if filter then 
+          ffilters['filter: '..linenumber] = filter
         else
-          error() --FIXME
+          io.stderr:write('lflow: '..filename..':'..linenumber..': '..tostring(err)..'\n')
         end
       end
-    end)
   end
   filters_start()
   --[[

@@ -28,8 +28,58 @@ local fevents = setmetatable(
 )
 M.fevents = fevents
 
+local proto_filter_env = {}
+for k, v in pairs(_G) do proto_filter_env[k] = v end
+M.proto_filter_env = proto_filter_env
+
+
+
 -- fvalues[evname] = value
 local fvalues = {}
+
+M.parse_line = function (line)
+  local in_params, filter_body, out_params 
+    = line:match('^([^%>]*)%>%s*(.-)%s*%>%s*([^%>]*)%s*$')
+  --print ('line parsed:', in_params, filter_body, out_params)
+  if in_params and filter_body and out_params then 
+    local inputs, outputs = {}, {}
+    
+    --list in params
+    for p in in_params:gmatch("[^,]+") do
+      p = p:match('^%s*(.-)%s*$')
+      inputs[#inputs+1] = tonumber(p) or p
+      --print('param', #inputs, p)
+    end
+    
+    --list outparams
+    for p in out_params:gmatch("[^,]+") do
+      p = p:match('^%s*(.-)%s*$')
+      outputs[#outputs+1] = p
+      --print('output', #inputs, p)
+    end
+    
+    --print ('+', filter_body)
+    local filter, err
+    --if filter_body:find('^%s*function%*%(.+end%s*$') then
+    if filter_body:find('^%s*function%s*%(.+end%s*$') then
+      --filter_body is source code
+      filter, err = M.create_filter(inputs, outputs, 'string', 'return '..filter_body)
+    else
+      --filter_body must be filename
+      local filter_path = './lflow/filters/'..filter_body..'.lua'
+      filter, err = M.create_filter(inputs, outputs, 'file', filter_path)
+    end
+    if filter then 
+      --ffilters['filter: '..linenumber] = filter
+      return filter
+    else
+      --io.stderr:write('lflow: '..filename..':'..linenumber..': '..tostring(err)..'\n')
+      return nil, err
+    end
+  else
+    return nil, 'error parsing line'
+  end
+end
 
 -- in_events = {string par1, string par2, ...}
 -- out_events = {string out1, string out2, ...}
@@ -103,10 +153,11 @@ M.create_filter = function (in_events, out_events, filter_from, filter)
   end
     
   --set environment for f
-  local env={
-    output=emit_output,
-  }
-  for k, v in pairs(_G) do env[k]=v end
+  local env = {}
+  for k, v in pairs(M.proto_filter_env) do
+    env[k] = v
+  end
+  env.output = emit_output
   
   local fdef, err 
   if filter_from=='file' then
@@ -163,7 +214,7 @@ M.start = function()
 end
 
 M.stop = function()
-  sched.signal(M.fevents['lflow_run'], true)
+  sched.signal(M.fevents['lflow_run'], false)
 end
 
 return M
