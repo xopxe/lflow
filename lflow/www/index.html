@@ -68,7 +68,18 @@ document.getElementById("wslsh_status").textContent = get_appropriate_ws_url();
 
 		socket_lsh.onmessage =function got_packet(msg) {
 			var programout = document.getElementById("programout");
-			programout.value += msg.data;
+			var command = JSON.parse(msg.data);
+			if (command.action == "LOG") {
+				programout.value += command.text;
+				programout.value += "\r\n";
+			} else if(command.action == "OUTPUT"){
+				var tab="";
+				for (var i=0, tot=command.output.length; i < tot; i++){
+					programout.value += tab; tab="\t";
+					programout.value += command.output[i];
+				}
+				programout.value += "\r\n";
+			}
 			programout.scrollTop = programout.scrollHeight;
 			document.getElementById( "editor").focus()
 		} 
@@ -89,11 +100,12 @@ function shellsendrun() {
 	var editor = document.getElementById( "editor");
 	var program = editor.value;
 	programout.value = '';
-	socket_lsh.send('\r\n#CLEAR\r\n'+program+'\r\n#RUN\r\n');
+	socket_lsh.send(JSON.stringify({"action": "CLEAR"}));
+	socket_lsh.send(JSON.stringify({"action": "RUN", "program": program}));
 	return false;
 }
 function shellsendstop() {
-	socket_lsh.send('\r\n#STOP\r\n');
+	socket_lsh.send(JSON.stringify({"action": "STOP"}));
 	return false;
 }
 document.getElementById("editor").focus()

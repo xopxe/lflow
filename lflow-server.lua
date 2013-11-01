@@ -4,6 +4,9 @@ local log = require 'log'
 log.setlevel('ALL', 'LFLOWSRV')
 --require "log".setlevel('ALL', 'HTTP')
 
+local json=require "lib/dkjson"
+local jencode, jdecode = json.encode, json.decode
+
 --require "strict"
 
 local service = _G.arg [1] or 'nixio'
@@ -21,6 +24,7 @@ else
 end
 
 local ffilters = {}
+local linenumber = 0
 
 local function filters_stop ()
   sched.run( function()
@@ -47,6 +51,7 @@ local function filters_delete ()
       end
       ffilters[fname]=nil
     end
+    linenumber = 0
   end)
 end
 
@@ -61,8 +66,6 @@ local function filters_start ()
     lflow.start()
   end)
 end
-
-local linenumber = 0
 
 http_server.set_websocket_protocol('lumen-lflow-protocol', function(ws)
   --[[
@@ -80,40 +83,53 @@ http_server.set_websocket_protocol('lumen-lflow-protocol', function(ws)
 			local message,opcode = ws:receive()
       --print('from ws', message,opcode)
 			if not message then
+        log('LFLOWSRV', 'DEBUG', 'Closing websocket')
 				ws:close()
         filters_stop ()
 				return
 			end
 			if opcode == ws.TEXT then
 				--sh.pipe_in:write('line', message)
-        for line in message:gmatch("[^\r\n]+") do
-          --print ('line:', line)
-          if line == '#RUN' then
-            filters_start()
-          elseif line == '#STOP' then
-            filters_stop()
-          elseif line == '#CLEAR' then
-            filters_delete()
-          else
+        local command = jdecode(message)
+        --print ('>>>>>', message, command.action)
+        
+        if type(command.program) == 'string' then
+          for line in (command.program):gmatch("[^\r\n]+") do
             linenumber=linenumber+1
             if line~=string.rep(' ', #line) and not line:find('^%s*#') then
               local oldprint = lflow.proto_filter_env.print
               lflow.proto_filter_env.print = function(...)
-                for i = 1, select('#', ...) do
-                  ws:send(tostring(select(i, ...))..'\t')
-                end
-                ws:send('\r\n')
+                --for i = 1, select('#', ...) do
+                --  ws:send(tostring(select(i, ...))..'\t')
+                --end
+                --ws:send('\r\n')
+                ws:send(jencode({
+                  action = 'OUTPUT',
+                  output = {...},
+                }))
               end
               local filter, err = lflow.parse_line(line)
               lflow.proto_filter_env.print = oldprint
               if filter then 
                 ffilters['filter: '..linenumber] = filter
               else
-                ws:send('lflow ['..linenumber..']: '..tostring(err)..'\r\n')
+                ws:send(jencode({
+                  action = 'LOG',
+                  text = 'lflow ['..linenumber..']: '..tostring(err)
+                }))
               end
             end
           end
         end
+        if command.action == 'RUN' then
+          filters_start()
+        elseif command.action == 'STOP' then
+          filters_stop()
+        elseif command.action == 'CLEAR' then
+          filters_delete()
+        elseif command.action ~= nil then
+          log('LFLOWSRV', 'WARNING', 'Unknown command in websocket: "%s"', tostring(command.action))
+        end          
       end
 		end
 	end)
