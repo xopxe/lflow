@@ -67,4 +67,4 @@ if filename then
   --]]
 end
 
-sched.go()
+sched.loop()

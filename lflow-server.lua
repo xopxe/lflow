@@ -163,4 +163,4 @@ for _, h in pairs (http_server.request_handlers) do
   log('LFLOWSRV', 'INFO', 'Server listening for pattern "%s"', tostring(h.pattern))
 end
 
-sched.go()
+sched.loop()
