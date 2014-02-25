@@ -5,9 +5,9 @@ Data-flow language for reactive robotics.
 
 ## Introduction
 
-A programa is a collection of filter chains. Each chain is a collection of inputs and ouputs, and a filter in the middle. Each input and output is a data stream. Filters capture data from the input and send data on the ouput. Each output is labeled, and these labels are used to connect filter cains. You can also use constant values as inputs. Filters can generate output on their own, not only as a response to input data.
+A lflow program is a collection of filter chains. Each chain is a collection of inputs and outputs, and a filter in the middle. Each input and output is a data stream. Filters capture data from the input and send data on the output. Each output is labeled, and these labels are used to connect filter chains. You can also use constant values as inputs. Filters can generate output on their own, not only as a response to input data.
 
-The language provedes a set of standard filters (check for them in the lflow/filters/ folder). You can extend the language adding new filters. You can also write the Lua source code for the filter right in the filter chain specification.
+The language provides a set of standard filters (check for them in the lflow/filters/ folder). You can extend the language adding new filters. You can also write the Lua source code for the filter right in the filter chain specification.
 
 To do proper robotic control, lflow uses Toribio.
 
@@ -17,7 +17,7 @@ In a lflow file each filter chain goes on a line. A filter chain is
 
 \[inputs\] > filter_spec > \[outputs\]
 
-where _inputs_ is a comma separated list of labels or constant values, and _ouputs_ is a comma separated list of labels.
+where _inputs_ is a comma separated list of labels or constant values, and _outputs_ is a comma separated list of labels.
 
 You can add comments with #. There are several sample programs in the examples/ folder.
 
@@ -29,7 +29,7 @@ tick > print >
 ```
 
 _timer_ and _print_ are filters. We pass the number 1 to the timer which will
-start emitting a number each 1 second. This number will be labeled _tick_, and whe provide this to _print_ that prints it (and odes not generate any output).
+start emitting a number each 1 second. This number will be labeled _tick_, and we provide this to _print_ that prints it (and odes not generate any output).
 
 If we want to print when 60 seconds have passed, we modify the program as follows:
 
