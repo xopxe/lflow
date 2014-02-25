@@ -5,11 +5,11 @@ Data-flow language for reactive robotics.
 
 ## Introduction
 
-A lflow program is a collection of filter chains. Each chain is a collection of inputs and outputs, and a filter in the middle. Each input and output is a data stream. Filters capture data from the input and send data on the output. Each output is labeled, and these labels are used to connect filter chains. You can also use constant values as inputs. Filters can generate output on their own, not only as a response to input data.
+A lflow program is a collection of filter chains. Each chain is a collection of inputs, a collection of and outputs, and a filter in the middle. Each input or output is a data stream. Filters capture data from the inputs and send data on the outputs. Each output is labeled, and these labels are used to connect filter chains. You can also use constant values as inputs. Filters can generate output whenever they want, not just as a response to input data.
 
 The language provides a set of standard filters (check for them in the lflow/filters/ folder). You can extend the language adding new filters. You can also write the Lua source code for the filter right in the filter chain specification.
 
-To do proper robotic control, lflow uses Toribio.
+To interface with actual hardware lflow uses Toribio.
 
 ## File format
 
@@ -29,7 +29,7 @@ tick > print >
 ```
 
 _timer_ and _print_ are filters. We pass the number 1 to the timer which will
-start emitting a number each 1 second. This number will be labeled _tick_, and we provide this to _print_ that prints it (and odes not generate any output).
+start emitting a number each 1 second. This number will be labeled _tick_. On the second line we provide this value to _print_ that prints it (and does not generate any output).
 
 If we want to print when 60 seconds have passed, we modify the program as follows:
 
