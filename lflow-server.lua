@@ -1,21 +1,22 @@
-package.path = package.path .. ";;;./lflow/Toribio/?.lua;./lflow/Toribio/Lumen/?.lua"
+package.path = package.path ..";;;./lflow/Toribio/?.lua;./lflow/Toribio/?/init.lua;;./lflow/Toribio/lumen/?.lua"
 
-local log = require 'log'
+
+local log = require 'lumen.log'
 log.setlevel('ALL', 'LFLOWSRV')
 --require "log".setlevel('ALL', 'HTTP')
 
-local json=require "lib/dkjson"
+local json=require "lumen.lib.dkjson"
 local jencode, jdecode = json.encode, json.decode
 
 --require "strict"
 
 local service = _G.arg [1] or 'nixio'
 
-local sched = require "sched"
-require "tasks/selector".init({service=service})
+local sched = require "lumen.sched"
+require "lumen.tasks.selector".init({service=service})
 
-local http_server = require "tasks/http-server"
-local lflow = require 'lflow/init'
+local http_server = require "lumen.tasks.http-server"
+local lflow = require 'lflow'
 
 if service=='nixio' then
 	http_server.serve_static_content_from_stream('/', 'lflow/www')
